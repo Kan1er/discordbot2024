@@ -1,0 +1,141 @@
+import discord
+from discord.ext import commands
+import random
+import asyncio
+
+client = commands.Bot(command_prefix='!', intents=discord.Intents.all())
+
+
+@client.event
+async def on_ready():
+  print(f'We have logged in as {client.user}')
+
+
+# Shutdown
+@client.command(aliases=['close', 'stop'])
+async def shutdown(ctx):
+  await ctx.send('Shutting down...')
+  await client.close()
+
+#Userinfo 
+@client.command(aliases=['uinfo', 'whois'])
+async def userinfo(ctx, member: discord.Member = None):
+  if member == None:
+    member = ctx.message.author
+  roles = [role for role in member.roles]
+  embed = discord.Embed(
+      title="User Info",
+      description=f"Here's the user info for {member.mention}",
+      color=discord.Color.green(),
+      timestamp=ctx.message.created_at)
+  embed.set_thumbnail(url=member.avatar)
+  embed.add_field(name='ID', value=member.id, inline=True)
+  embed.add_field(name='Name', value=f'{member.discriminator}')
+  embed.add_field(name='Nickname', value=member.display_name)
+  embed.add_field(name='Status', value=member.status)
+  embed.add_field(name='Created At',
+                  value=member.created_at.strftime('%a, %B %#d, %Y, %I:%M %p'))
+  embed.add_field(name='Joined At',
+                  value=member.joined_at.strftime('%a, %B %#d, %Y, %I:%M %p'))
+  embed.add_field(name=f'Roles ({len(roles)})',
+                  value=' '.join([role.mention for role in roles]))
+  embed.add_field(name='Top Role', value=member.top_role.mention)
+  embed.add_field(name='Messages', value='0')
+  embed.add_field(name='Bot?', value=member.bot)
+  await ctx.send(embed=embed)
+
+#Serverinfo
+@client.command(aliases=['sinfo', 'server'])
+async def serverinfo(ctx):
+  embed = discord.Embed(
+      title="Server Info",
+      description="Here's the server info on the server " f"{ctx.guild.name}",
+      color=discord.Color.green(),
+      timestamp=ctx.message.created_at
+  )
+  embed.set_thumbnail(url=ctx.guild.icon)
+  embed.add_field(name='Owner', value=ctx.guild.owner.mention)
+  embed.add_field(name='Members', value=ctx.guild.member_count)
+  embed.add_field(name='Channels', value=f'{len(ctx.guild.text_channels)} Text | {len(ctx.guild.voice_channels)} Voice')
+  embed.add_field(name='Description' , value=ctx.guild.description)
+  embed.add_field(name='Created At', value=ctx.guild.created_at.strftime('%a, %B %#d, %Y, %I:%M %p'))
+  await ctx.send(embed=embed)
+
+#Calculator
+@client.command(aliases=['calculate', 'calc'])
+async def math(ctx,expressions):
+  symbols = ['+', '-', '/', '*', '%']
+  if any(s in expressions for s in symbols):
+    calculated = eval(expressions)
+    embed = discord.Embed(title="Math Expression", description=f"`Expression` {expressions}\n`Answer` {calculated}", color=discord.Color.green(), timestamp=ctx.message.created_at)
+  else:
+    await ctx.send('It is not math problem')
+  await ctx.send(embed=embed)
+
+#roll 
+@client.command(aliases=['dice'])
+async def roll(ctx, max:int):
+  number = random.randint(1,max)
+  await ctx.send(number)
+
+#choice
+@client.command(aliases=['select'])
+async def choose(ctx, *, args):
+  arguments = args.split(" ")
+  choice = random.choice(arguments)
+  thinking = await ctx.send(":clock1: Thinking...")
+  await asyncio.sleep(0.2)
+  for i in range(4):
+    await thinking.edit(content=f':clock{i+1}: Thinking...')
+    await asyncio.sleep(0.2)
+  await ctx.send(choice)
+
+#Guessgame
+@client.command(aliases=['guessing game'])
+async def guess(ctx, max:int=10):
+  MAX_GUESSES = 5
+  number = random.randint(1,max)
+  await ctx.send(f'Guessing game start!\nPlease guess a number between **1-{max}**\nYou have **{MAX_GUESSES}** guesses')
+  def check(m):
+    return m.author == ctx.author and m.channel == ctx.message.channel
+  for i in range(MAX_GUESSES):
+    guess = await client.wait_for('message', check=check)
+    try:
+      int(guess.content)
+      if guess.content==str(number):
+        await ctx.send(f'You guessed the number!, it took you **{i+1}** tries')
+      elif guess.content >= str(number):
+        await ctx.send('Lower!')
+      elif guess.content <= str(number):
+        await ctx.send('Higher!')
+    except:
+      await ctx.send('Please send a number!')
+  else:
+    await ctx.send(f'Game lost!\nYou only get **{MAX_GUESSES}** guesses')
+    
+
+# Ban
+@client.command()
+@commands.has_permissions(ban_members=True)
+async def ban(ctx, member: discord.Member, *, reason=None):
+  await member.ban(reason=reason)
+  await ctx.send(f'{member} has been banned.')
+
+
+# Kick
+@client.command()
+@commands.has_permissions(kick_members=True)
+async def kick(ctx, member: discord.Member, *, reason=None):
+  await member.kick(reason=reason)
+  await ctx.send(f'{member} has been kicked.')
+
+
+# Clear messages
+@client.command()
+@commands.has_permissions(manage_messages=True)
+async def clear(ctx, amount=20):
+  await ctx.channel.purge(limit=amount)
+  await ctx.send(f'Deleted {amount} messages.')
+
+
+client.run('')
